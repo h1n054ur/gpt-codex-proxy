@@ -25,12 +25,21 @@ for (const name of REQUIRED_ENV) {
 const OPENAI_OAUTH_CLIENT_ID = process.env.OPENAI_OAUTH_CLIENT_ID || "app_EMoamEEZ73f0CkXaXp7hrann";
 const PROXY_SECRET = process.env.PROXY_SECRET;
 const CHATGPT_ACCOUNT_ID = process.env.CHATGPT_ACCOUNT_ID || undefined;
+const BOOT_ACCESS_TOKEN = process.env.OPENAI_ACCESS_TOKEN || "";
+
+function tokenExpiryMs(token) {
+  const claims = decodeJwtPayload(token);
+  if (!claims || typeof claims.exp !== "number" || !Number.isFinite(claims.exp)) {
+    return 0;
+  }
+  return claims.exp * 1000;
+}
 
 let tokenState = {
-  accessToken: process.env.OPENAI_ACCESS_TOKEN || "",
+  accessToken: BOOT_ACCESS_TOKEN,
   refreshToken: process.env.OPENAI_REFRESH_TOKEN,
-  expiresAt: 0,
-  accountId: CHATGPT_ACCOUNT_ID,
+  expiresAt: tokenExpiryMs(BOOT_ACCESS_TOKEN),
+  accountId: extractAccountId(BOOT_ACCESS_TOKEN) || CHATGPT_ACCOUNT_ID,
 };
 
 function corsHeaders() {
@@ -255,12 +264,22 @@ function buildNonStreamResponseFromSSE(sseText) {
 }
 
 function validateProxyAuth(req) {
-  const auth = req.headers.authorization;
-  if (auth) {
-    const [type, token] = auth.split(" ");
-    if (type === "Bearer" && token === PROXY_SECRET) return true;
+  const authHeader = req.headers.authorization;
+  if (typeof authHeader === "string" && authHeader.trim().length > 0) {
+    const trimmed = authHeader.trim();
+
+    if (trimmed === PROXY_SECRET) {
+      return true;
+    }
+
+    const match = trimmed.match(/^Bearer\s+(.+)$/i);
+    if (match && match[1].trim() === PROXY_SECRET) {
+      return true;
+    }
   }
-  return req.headers["x-api-key"] === PROXY_SECRET;
+
+  const apiKey = req.headers["x-api-key"];
+  return typeof apiKey === "string" && apiKey.trim() === PROXY_SECRET;
 }
 
 function buildUpstreamHeaders(req, accessToken, accountId) {
