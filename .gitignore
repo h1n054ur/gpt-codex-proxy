@@ -1,6 +1,8 @@
 node_modules/
 .wrangler/
 .dev.vars
+.env
+.env.*
 .tokens.json
 *.log
 .proxy-secret

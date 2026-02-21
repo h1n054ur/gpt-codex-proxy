@@ -17,6 +17,9 @@ interface TokenData {
 const CODEX_RESPONSES_API_URL = "https://chatgpt.com/backend-api/codex/responses";
 const OPENAI_OAUTH_TOKEN_URL = "https://auth.openai.com/oauth/token";
 const DEFAULT_MODEL = "gpt-5.3-codex";
+const DEFAULT_REASONING_EFFORT = "high";
+const DEFAULT_INSTRUCTIONS =
+  "You are Codex, a coding agent based on GPT-5. Follow the user request and keep responses concise.";
 
 function withCors(headersInit?: HeadersInit): Headers {
   const headers = new Headers(headersInit);
@@ -35,6 +38,93 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function normalizeCodexModel(model: unknown): string {
+  const requested = asString(model)?.trim().toLowerCase();
+  if (!requested) return DEFAULT_MODEL;
+
+  const highAliases = new Set([
+    "gpt-5.3-codex-high",
+    "gpt-5.3-codex:high",
+    "gpt-5.3-codex-high-reasoning",
+    "codex-5.3-high",
+  ]);
+
+  if (highAliases.has(requested)) return DEFAULT_MODEL;
+  return requested;
+}
+
+function textToInputMessage(text: string): Record<string, unknown> {
+  return {
+    type: "message",
+    role: "user",
+    content: [
+      {
+        type: "input_text",
+        text,
+      },
+    ],
+  };
+}
+
+function normalizeInput(body: Record<string, unknown>): Record<string, unknown>[] {
+  const input = body.input;
+  if (Array.isArray(input)) {
+    return input as Record<string, unknown>[];
+  }
+
+  const inputString = asString(input);
+  if (inputString && inputString.trim().length > 0) {
+    return [textToInputMessage(inputString)];
+  }
+
+  const messages = body.messages;
+  if (Array.isArray(messages)) {
+    const converted: Record<string, unknown>[] = [];
+    for (const message of messages) {
+      if (!isObject(message)) continue;
+      const role = asString(message.role) ?? "user";
+      const content = message.content;
+      if (typeof content !== "string") continue;
+      converted.push({
+        type: "message",
+        role,
+        content: [
+          {
+            type: "input_text",
+            text: content,
+          },
+        ],
+      });
+    }
+
+    if (converted.length > 0) return converted;
+  }
+
+  return [textToInputMessage("Hello")];
+}
+
+function normalizeReasoning(
+  body: Record<string, unknown>,
+  requestedModel: string,
+): { effort: string } {
+  const explicitReasoning = isObject(body.reasoning) ? body.reasoning : {};
+  const explicitEffort = asString(explicitReasoning.effort)?.toLowerCase();
+
+  if (explicitEffort) {
+    return { effort: explicitEffort };
+  }
+
+  if (requestedModel.includes("high")) {
+    return { effort: DEFAULT_REASONING_EFFORT };
+  }
+
+  return { effort: DEFAULT_REASONING_EFFORT };
 }
 
 function toBase64(base64url: string): string {
@@ -118,6 +208,8 @@ function buildUpstreamHeaders(request: Request, accessToken: string, accountId?:
     headers.set("content-type", "application/json");
   }
 
+  headers.set("accept", "text/event-stream");
+
   if (!headers.get("version")) {
     headers.set("version", "proxy-1.0");
   }
@@ -126,19 +218,44 @@ function buildUpstreamHeaders(request: Request, accessToken: string, accountId?:
     headers.set("ChatGPT-Account-ID", accountId);
   }
 
+  if (!headers.get("session_id")) {
+    headers.set("session_id", crypto.randomUUID());
+  }
+
   return headers;
 }
 
 function normalizeRequestBody(raw: unknown): Record<string, unknown> {
   const body = isObject(raw) ? { ...raw } : {};
+  const requestedModel = asString(body.model) ?? "";
 
-  if (!body.model) {
-    body.model = DEFAULT_MODEL;
+  body.model = normalizeCodexModel(body.model);
+
+  const instructions = asString(body.instructions);
+  body.instructions = instructions && instructions.trim().length > 0 ? instructions : DEFAULT_INSTRUCTIONS;
+
+  body.input = normalizeInput(body);
+  body.reasoning = normalizeReasoning(body, requestedModel);
+
+  if (!Array.isArray(body.tools)) {
+    body.tools = [];
   }
 
-  if (body.store === undefined) {
-    body.store = false;
+  if (!asString(body.tool_choice)) {
+    body.tool_choice = "auto";
   }
+
+  if (typeof body.parallel_tool_calls !== "boolean") {
+    body.parallel_tool_calls = true;
+  }
+
+  if (!isStringArray(body.include)) {
+    body.include = [];
+  }
+
+  body.stream = true;
+
+  body.store = false;
 
   return body;
 }
