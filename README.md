@@ -100,5 +100,6 @@ curl -sS -X POST https://codex-proxy.h1n054ur.dev/v1/responses \
 ## Notes
 
 - `gpt-5.3-codex` access depends on account entitlement and may return `model_not_found`.
-- The proxy defaults reasoning effort to `high` and normalizes `gpt-5.3-codex-high` alias to `gpt-5.3-codex`.
+- The proxy default model is `gpt-5.3-codex-high` (normalized upstream to `gpt-5.3-codex` with `reasoning.effort=high`).
+- Upstream defaults mimic Codex CLI headers (`originator=codex_cli_rs`, `version=0.98.0`).
 - Keep `.env`, `.tokens.json`, `.proxy-secret`, and tunnel credentials out of git.

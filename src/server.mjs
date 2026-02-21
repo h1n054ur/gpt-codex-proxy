@@ -5,8 +5,12 @@ import { randomUUID } from "node:crypto";
 const PORT = Number(process.env.PORT || "8080");
 const CODEX_RESPONSES_API_URL = "https://chatgpt.com/backend-api/codex/responses";
 const OPENAI_OAUTH_TOKEN_URL = "https://auth.openai.com/oauth/token";
-const DEFAULT_MODEL = "gpt-5.3-codex";
+const DEFAULT_MODEL_ALIAS = "gpt-5.3-codex-high";
+const DEFAULT_UPSTREAM_MODEL = "gpt-5.3-codex";
 const DEFAULT_REASONING_EFFORT = "high";
+const DEFAULT_ORIGINATOR = "codex_cli_rs";
+const DEFAULT_CLIENT_VERSION = "0.98.0";
+const DEFAULT_USER_AGENT = `codex_cli_rs/${DEFAULT_CLIENT_VERSION}`;
 const DEFAULT_INSTRUCTIONS =
   "You are Codex, a coding agent based on GPT-5. Follow the user request and keep responses concise.";
 
@@ -117,7 +121,7 @@ function extractAccountId(token) {
 
 function normalizeCodexModel(model) {
   const requested = asString(model)?.trim().toLowerCase();
-  if (!requested) return DEFAULT_MODEL;
+  if (!requested) return DEFAULT_UPSTREAM_MODEL;
 
   const highAliases = new Set([
     "gpt-5.3-codex-high",
@@ -125,7 +129,7 @@ function normalizeCodexModel(model) {
     "gpt-5.3-codex-high-reasoning",
     "codex-5.3-high",
   ]);
-  if (highAliases.has(requested)) return DEFAULT_MODEL;
+  if (highAliases.has(requested)) return DEFAULT_UPSTREAM_MODEL;
   return requested;
 }
 
@@ -170,9 +174,9 @@ function normalizeReasoning(body, requestedModel) {
 
 function normalizeRequestBody(raw) {
   const body = isObject(raw) ? { ...raw } : {};
-  const requestedModel = asString(body.model) || "";
+  const requestedModel = asString(body.model)?.trim().toLowerCase() || DEFAULT_MODEL_ALIAS;
 
-  body.model = normalizeCodexModel(body.model);
+  body.model = normalizeCodexModel(requestedModel);
   body.instructions = asString(body.instructions)?.trim() || DEFAULT_INSTRUCTIONS;
   body.input = normalizeInput(body);
   body.reasoning = normalizeReasoning(body, requestedModel);
@@ -264,9 +268,9 @@ function buildUpstreamHeaders(req, accessToken, accountId) {
   headers.set("authorization", `Bearer ${accessToken}`);
   headers.set("content-type", "application/json");
   headers.set("accept", "text/event-stream");
-  headers.set("originator", req.headers.originator || "opencode");
-  headers.set("user-agent", req.headers["user-agent"] || "opencode/0.0-local (docker)");
-  headers.set("version", req.headers.version || "0.1.0");
+  headers.set("originator", req.headers.originator || DEFAULT_ORIGINATOR);
+  headers.set("user-agent", req.headers["user-agent"] || DEFAULT_USER_AGENT);
+  headers.set("version", req.headers.version || DEFAULT_CLIENT_VERSION);
   headers.set("session_id", req.headers.session_id || randomUUID());
 
   if (accountId) {
@@ -357,6 +361,7 @@ function modelList() {
   return {
     object: "list",
     data: [
+      { id: "gpt-5.3-codex-high", object: "model", owned_by: "openai" },
       { id: "gpt-5.3-codex", object: "model", owned_by: "openai" },
       { id: "gpt-5.2-codex", object: "model", owned_by: "openai" },
       { id: "gpt-5.1-codex", object: "model", owned_by: "openai" },
