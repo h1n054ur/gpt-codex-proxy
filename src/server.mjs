@@ -263,23 +263,67 @@ function buildNonStreamResponseFromSSE(sseText) {
   return { completed, error, outputText, eventCount: events.length };
 }
 
+function normalizeSecretValue(value) {
+  if (typeof value !== "string") return "";
+  return value.trim().replace(/^"|"$/g, "").replace(/^'|'$/g, "");
+}
+
+function getAuthDebugInfo(req) {
+  const authHeader = typeof req.headers.authorization === "string" ? req.headers.authorization.trim() : "";
+  const xApiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"].trim() : "";
+  const apiKey = typeof req.headers["api-key"] === "string" ? req.headers["api-key"].trim() : "";
+
+  let authScheme = "none";
+  if (authHeader) {
+    const first = authHeader.split(/\s+/, 1)[0] || "unknown";
+    authScheme = first;
+  }
+
+  return {
+    authScheme,
+    authHeaderLength: authHeader.length,
+    xApiKeyLength: xApiKey.length,
+    apiKeyLength: apiKey.length,
+    userAgent: typeof req.headers["user-agent"] === "string" ? req.headers["user-agent"] : "",
+  };
+}
+
 function validateProxyAuth(req) {
   const authHeader = req.headers.authorization;
   if (typeof authHeader === "string" && authHeader.trim().length > 0) {
     const trimmed = authHeader.trim();
+    const raw = normalizeSecretValue(trimmed);
 
-    if (trimmed === PROXY_SECRET) {
+    if (raw === PROXY_SECRET) {
       return true;
     }
 
     const match = trimmed.match(/^Bearer\s+(.+)$/i);
-    if (match && match[1].trim() === PROXY_SECRET) {
+    if (match && normalizeSecretValue(match[1]) === PROXY_SECRET) {
       return true;
+    }
+
+    const basic = trimmed.match(/^Basic\s+(.+)$/i);
+    if (basic) {
+      try {
+        const decoded = Buffer.from(basic[1], "base64").toString("utf8");
+        const [user = "", pass = ""] = decoded.split(":", 2);
+        if (normalizeSecretValue(user) === PROXY_SECRET || normalizeSecretValue(pass) === PROXY_SECRET) {
+          return true;
+        }
+      } catch {
+        // ignore invalid basic auth encoding
+      }
     }
   }
 
-  const apiKey = req.headers["x-api-key"];
-  return typeof apiKey === "string" && apiKey.trim() === PROXY_SECRET;
+  const xApiKey = req.headers["x-api-key"];
+  if (typeof xApiKey === "string" && normalizeSecretValue(xApiKey) === PROXY_SECRET) {
+    return true;
+  }
+
+  const apiKey = req.headers["api-key"];
+  return typeof apiKey === "string" && normalizeSecretValue(apiKey) === PROXY_SECRET;
 }
 
 function buildUpstreamHeaders(req, accessToken, accountId) {
@@ -423,6 +467,9 @@ createServer(async (req, res) => {
 
     if (req.method === "POST" && (url.pathname === "/v1/responses" || url.pathname === "/openai/v1/responses")) {
       if (!validateProxyAuth(req)) {
+        console.warn(
+          `[auth] unauthorized ${new Date().toISOString()} ${JSON.stringify(getAuthDebugInfo(req))}`,
+        );
         sendText(res, 401, "Unauthorized");
         return;
       }
