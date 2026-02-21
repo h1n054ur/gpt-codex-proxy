@@ -1,0 +1,21 @@
+{
+  "name": "gpt-codex-proxy",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker proxy for Codex responses using ChatGPT OAuth tokens",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "login": "node scripts/oauth-login.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["cloudflare", "workers", "openai", "codex", "proxy"],
+  "author": "",
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260129.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.61.1"
+  }
+}

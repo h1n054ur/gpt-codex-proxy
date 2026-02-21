@@ -1,0 +1,24 @@
+{
+  "$schema": "https://workers.cloudflare.com/deploy.json",
+  "name": "gpt-codex-proxy",
+  "description": "Cloudflare Worker proxy for Codex responses using ChatGPT OAuth tokens",
+  "repository": "https://github.com/h1n054ur/gpt-codex-proxy",
+  "secrets": [
+    {
+      "name": "OPENAI_ACCESS_TOKEN",
+      "description": "Access token from OAuth login (run: node scripts/oauth-login.js)"
+    },
+    {
+      "name": "OPENAI_REFRESH_TOKEN",
+      "description": "Refresh token from OAuth login"
+    },
+    {
+      "name": "PROXY_SECRET",
+      "description": "Secret key used by your clients to call this proxy"
+    },
+    {
+      "name": "CHATGPT_ACCOUNT_ID",
+      "description": "Optional ChatGPT account/org id for subscription routing"
+    }
+  ]
+}
