@@ -4,10 +4,10 @@ Local Node proxy for Codex OAuth traffic, exposed through Cloudflare Tunnel.
 
 This replaces the Worker-based runtime for this project because Worker egress was blocked by upstream challenge responses.
 
-## What is deployed now
+## Deployment model
 
-- Local containerized proxy service (`codex-proxy`) on `127.0.0.1:8080`
-- Cloudflare Tunnel (`codex-proxy`) mapped to `codex-proxy.h1n054ur.dev`
+- Local containerized proxy service (`codex-proxy`) on `127.0.0.1:${PROXY_BIND_PORT:-8080}`
+- Cloudflare Tunnel (`codex-proxy`) mapped to `codex-proxy.yourdomain.com`
 - Tunnel traffic forwarded to `http://codex-proxy:8080`
 
 ## Files
@@ -28,6 +28,7 @@ Use `.env` (copy from `.env.example`):
 - `CHATGPT_ACCOUNT_ID`
 - `PROXY_SECRET`
 - `CLOUDFLARED_TUNNEL_TOKEN`
+- `PROXY_BIND_PORT` (optional, defaults to `8080`)
 
 ## Run
 
@@ -49,11 +50,11 @@ Stop everything:
 docker compose down
 ```
 
-## Tunnel setup (already done for this repo)
+## Tunnel setup
 
 ```bash
 cloudflared tunnel create codex-proxy
-cloudflared tunnel route dns codex-proxy codex-proxy.h1n054ur.dev
+cloudflared tunnel route dns codex-proxy codex-proxy.yourdomain.com
 cloudflared tunnel token codex-proxy
 ```
 
@@ -68,7 +69,7 @@ If using config mode, place credentials at `config/cloudflared/credentials.json`
 Base URLs:
 
 - Local: `http://127.0.0.1:8080`
-- Tunnel: `https://codex-proxy.h1n054ur.dev`
+- Tunnel: `https://codex-proxy.yourdomain.com`
 
 ## Auth
 
@@ -83,11 +84,11 @@ or
 ## Quick test
 
 ```bash
-curl -sS https://codex-proxy.h1n054ur.dev/health
+curl -sS https://codex-proxy.yourdomain.com/health
 ```
 
 ```bash
-curl -sS -X POST https://codex-proxy.h1n054ur.dev/v1/responses \
+curl -sS -X POST https://codex-proxy.yourdomain.com/v1/responses \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $PROXY_SECRET" \
   -d '{
