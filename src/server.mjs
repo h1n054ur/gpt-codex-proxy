@@ -129,7 +129,8 @@ function extractAccountId(token) {
 }
 
 function normalizeCodexModel(model) {
-  const requested = asString(model)?.trim().toLowerCase();
+  const raw = asString(model)?.trim().toLowerCase();
+  const requested = raw?.includes("/") ? raw.split("/").pop() : raw;
   if (!requested) return DEFAULT_UPSTREAM_MODEL;
 
   const highAliases = new Set([
@@ -195,6 +196,11 @@ function normalizeRequestBody(raw) {
   body.include = isStringArray(body.include) ? body.include : [];
   body.store = false;
   body.stream = true;
+
+  // Codex backend rejects this OpenAI field.
+  if (Object.prototype.hasOwnProperty.call(body, "max_output_tokens")) {
+    delete body.max_output_tokens;
+  }
 
   return body;
 }
@@ -474,6 +480,10 @@ createServer(async (req, res) => {
         return;
       }
 
+      console.info(
+        `[auth] accepted ${new Date().toISOString()} ${JSON.stringify(getAuthDebugInfo(req))}`,
+      );
+
       let rawBody;
       try {
         rawBody = await readJsonBody(req);
@@ -504,6 +514,15 @@ createServer(async (req, res) => {
       if (upstream.status === 401) {
         token = await refreshAccessToken(token.refreshToken);
         upstream = await send(token.accessToken, token.accountId || CHATGPT_ACCOUNT_ID);
+      }
+
+      if (upstream.status >= 400) {
+        console.warn(
+          `[upstream] ${upstream.status} ${new Date().toISOString()} ${JSON.stringify({
+            path: url.pathname,
+            contentType: upstream.headers.get("content-type") || "",
+          })}`,
+        );
       }
 
       const responseHeaders = {
