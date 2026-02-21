@@ -32,6 +32,8 @@ Use `.env` (copy from `.env.example`):
 
 ## Run
 
+For a full remote deployment workflow, see `DEPLOY_VPS.md`.
+
 Start proxy + tunnel (token mode):
 
 ```bash
