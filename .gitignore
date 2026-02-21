@@ -3,6 +3,9 @@ node_modules/
 .dev.vars
 .env
 .env.*
+!.env.example
 .tokens.json
 *.log
 .proxy-secret
+config/cloudflared/credentials.json
+config/cloudflared/config.yml

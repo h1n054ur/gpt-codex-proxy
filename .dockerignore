@@ -1,0 +1,9 @@
+node_modules
+.git
+.wrangler
+.env
+.env.*
+.tokens.json
+.proxy-secret
+*.log
+dist

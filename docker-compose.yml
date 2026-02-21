@@ -1,0 +1,35 @@
+services:
+  codex-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: gpt-codex-proxy
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - PORT=8080
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: gpt-codex-proxy-cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TUNNEL_TOKEN}
+    depends_on:
+      - codex-proxy
+    profiles:
+      - tunnel
+
+  cloudflared-config:
+    image: cloudflare/cloudflared:latest
+    container_name: gpt-codex-proxy-cloudflared-config
+    restart: unless-stopped
+    command: tunnel --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./config/cloudflared:/etc/cloudflared:ro
+    depends_on:
+      - codex-proxy
+    profiles:
+      - tunnel-config

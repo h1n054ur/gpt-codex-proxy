@@ -1,9 +1,11 @@
 {
   "name": "gpt-codex-proxy",
   "version": "1.0.0",
-  "description": "Cloudflare Worker proxy for Codex responses using ChatGPT OAuth tokens",
-  "main": "src/index.ts",
+  "description": "Local Docker Codex proxy with optional Cloudflare Tunnel",
+  "main": "src/server.mjs",
   "scripts": {
+    "start": "node src/server.mjs",
+    "start:local": "node src/server.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "login": "node scripts/oauth-login.js",

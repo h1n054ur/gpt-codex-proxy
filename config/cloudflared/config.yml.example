@@ -1,0 +1,12 @@
+# Create tunnel and route:
+#   cloudflared tunnel create gpt-codex-proxy
+#   cloudflared tunnel route dns gpt-codex-proxy codex-proxy.h1n054ur.dev
+# Copy generated credentials JSON into this folder as credentials.json
+
+tunnel: YOUR_TUNNEL_ID
+credentials-file: /etc/cloudflared/credentials.json
+
+ingress:
+  - hostname: codex-proxy.h1n054ur.dev
+    service: http://codex-proxy:8080
+  - service: http_status:404
